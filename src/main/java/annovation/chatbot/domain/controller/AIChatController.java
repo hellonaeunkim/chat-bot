@@ -1,15 +1,21 @@
-package annovation.chatbot.controller;
+package annovation.chatbot.domain.controller;
 
+import annovation.chatbot.domain.entity.AIChatRoom;
+import annovation.chatbot.domain.service.AIChatRoomService;
+import io.swagger.v3.oas.annotations.Operation;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -19,7 +25,9 @@ import reactor.core.publisher.Flux;
 public class AIChatController {
 
     private final OpenAiChatModel chatClient;
+    private final AIChatRoomService aiChatRoomService;
 
+    @ResponseStatus(HttpStatus.OK)
     @GetMapping("/generate")
     public String generate(
             @RequestParam(
@@ -32,7 +40,8 @@ public class AIChatController {
                 .call(message);
     }
 
-    @GetMapping(value = "/generateStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    @GetMapping(value = "/generate-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> generateStream(
             @RequestParam(value = "message", defaultValue = "Tell me a joke") String message
     ) {
@@ -56,4 +65,17 @@ public class AIChatController {
                             .build();
                 });
     }
+
+    // todo : 로그인 사용자 인증 - @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "채팅방 생성")
+    @ResponseStatus(HttpStatus.OK)
+    @PostMapping(value = "/rooms")
+    public AIChatRoom createRoom() {
+        // AIChatRoom 생성
+        AIChatRoom aiChatRoom = aiChatRoomService.createRoom();
+
+        // 생성된 방의 ID를 반환
+        return aiChatRoom;
+    }
+
 }
