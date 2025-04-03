@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -41,12 +42,19 @@ public class AIChatController {
     }
 
     @ResponseStatus(HttpStatus.OK)
-    @GetMapping(value = "/generate-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/generate-stream/{chatRoomId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> generateStream(
+            @PathVariable Long chatRoomId,
             @RequestParam(value = "message", defaultValue = "Tell me a joke") String message
     ) {
+        // 채팅방 ID로 AIChatRoom 조회
+        AIChatRoom aiChatRoom = aiChatRoomService.findById(chatRoomId);
+
         // 프롬프트 생성 (Groq API에 보낼 메세지)
         Prompt prompt = new Prompt(List.of(new UserMessage(message)));
+
+        // 프롬프트에 대한 응답을 받을 StringBuilder
+        StringBuilder fullResponse = new StringBuilder();
 
         // 스트리밍 처리 (각 chunk는 AI가 생성한 텍스트 일부)
         return chatClient.stream(prompt)
@@ -54,12 +62,20 @@ public class AIChatController {
                     if (chunk.getResult() == null ||
                             chunk.getResult().getOutput() == null ||
                             chunk.getResult().getOutput().getText() == null) {
+                        aiChatRoom.addMessage(
+                                message,
+                                fullResponse.toString()
+                        );
+
+                        aiChatRoomService.save(aiChatRoom);
+
                         return ServerSentEvent.<String>builder()
                                 .data("[DONE]")
                                 .build();
                     }
 
                     String text = chunk.getResult().getOutput().getText();
+                    fullResponse.append(text);
                     return ServerSentEvent.<String>builder()
                             .data("\"" + text + "\"")
                             .build();
@@ -78,4 +94,13 @@ public class AIChatController {
         return aiChatRoom;
     }
 
+    @ResponseStatus(HttpStatus.OK)
+    @GetMapping("/{chatRoomId}")
+    public AIChatRoom getChatRoom(
+            @PathVariable Long chatRoomId
+    ) {
+        AIChatRoom aiChatRoom = aiChatRoomService.findById(chatRoomId);
+
+        return aiChatRoom;
+    }
 }
