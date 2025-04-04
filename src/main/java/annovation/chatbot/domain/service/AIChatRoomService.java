@@ -18,16 +18,24 @@ public class AIChatRoomService {
     @Transactional
     public AIChatRoom createRoom() {
         AIChatRoom aiChatRoom = AIChatRoom.builder().build();
-        return aiChatRoomRepository.save(aiChatRoom);
+
+        AIChatRoom saved = aiChatRoomRepository.save(aiChatRoom);
+
+        return saved;
     }
 
-    public AIChatRoom findById(Long id) {
-        return aiChatRoomRepository.findById(id)
+
+    @Transactional
+    public AIChatRoom findById(Long chatRoomId) {
+
+        AIChatRoom aiChatRoom = aiChatRoomRepository.findById(chatRoomId)
                 .orElseThrow(
                         () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "채팅방이 존재하지 않습니다."));
 
+        return aiChatRoom;
     }
 
+    @Transactional
     public void save(AIChatRoom aiChatRoom) {
         aiChatRoomRepository.save(aiChatRoom);
     }

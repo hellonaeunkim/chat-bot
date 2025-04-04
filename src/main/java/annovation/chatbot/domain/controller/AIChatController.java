@@ -1,5 +1,6 @@
 package annovation.chatbot.domain.controller;
 
+import annovation.chatbot.domain.dto.response.AIChatRoomMsgResponse;
 import annovation.chatbot.domain.entity.AIChatRoom;
 import annovation.chatbot.domain.service.AIChatRoomService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +42,7 @@ public class AIChatController {
                 .call(message);
     }
 
+    @Operation(summary = "채팅방 대화 생성")
     @ResponseStatus(HttpStatus.OK)
     @GetMapping(value = "/generate-stream/{chatRoomId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> generateStream(
@@ -85,7 +87,7 @@ public class AIChatController {
     // todo : 로그인 사용자 인증 - @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "채팅방 생성")
     @ResponseStatus(HttpStatus.OK)
-    @PostMapping(value = "/rooms")
+    @PostMapping
     public AIChatRoom createRoom() {
         // AIChatRoom 생성
         AIChatRoom aiChatRoom = aiChatRoomService.createRoom();
@@ -94,13 +96,26 @@ public class AIChatController {
         return aiChatRoom;
     }
 
+    @Operation(summary = "채팅방 조회")
     @ResponseStatus(HttpStatus.OK)
     @GetMapping("/{chatRoomId}")
-    public AIChatRoom getChatRoom(
+    public AIChatRoom getChatRoom(@PathVariable Long chatRoomId) {
+        AIChatRoom aiChatRoom = aiChatRoomService.findById(chatRoomId);
+
+        return aiChatRoom;
+    }
+
+    @Operation(summary = "특정 사용자의 채팅방 메세지 기록 조회")
+    @ResponseStatus(HttpStatus.OK)
+    @GetMapping("/{chatRoomId}/messages")
+    public List<AIChatRoomMsgResponse> getMessages(
             @PathVariable Long chatRoomId
     ) {
         AIChatRoom aiChatRoom = aiChatRoomService.findById(chatRoomId);
 
-        return aiChatRoom;
+        return aiChatRoom.getMessages()
+                .stream()
+                .map(AIChatRoomMsgResponse::from)
+                .toList();
     }
 }

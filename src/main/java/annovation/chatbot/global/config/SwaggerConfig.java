@@ -8,7 +8,7 @@ import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 
 // 서버 실행 후 다음 주소에서 Swagger 문서 확인 가능 : http://localhost:8080/swagger-ui/index.html
-@OpenAPIDefinition(info = @Info(title = "Planit API", version = "v1"))
+@OpenAPIDefinition(info = @Info(title = "ChatBot API", version = "v1"))
 @SecurityScheme(
         name = "bearerAuth",
         type = SecuritySchemeType.HTTP,
