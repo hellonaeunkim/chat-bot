@@ -1,11 +1,20 @@
 package annovation.chatbot.domain.controller;
 
+import static annovation.chatbot.domain.entity.AIChatRoom.PREVIEWS_MESSAGES_COUNT;
+
 import annovation.chatbot.domain.dto.response.AIChatRoomMsgResponse;
 import annovation.chatbot.domain.entity.AIChatRoom;
+import annovation.chatbot.domain.entity.AIChatRoomMessage;
 import annovation.chatbot.domain.service.AIChatRoomService;
 import io.swagger.v3.oas.annotations.Operation;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -52,8 +61,53 @@ public class AIChatController {
         // 채팅방 ID로 AIChatRoom 조회
         AIChatRoom aiChatRoom = aiChatRoomService.findById(chatRoomId);
 
+        // aiChatRoom에 저장된 이전 메시지 전체를 가져온다
+        List<AIChatRoomMessage> oldMessages = aiChatRoom.getMessages();
+        // 전체 메시지 개수를 변수에 저장 (나중에 메시지의 길이 체크 등에 활용)
+        int oldMessagesSize = oldMessages.size();
+        // 이전 대화에서 가져올 메시지 수를 제한
+        int previousMessagesSize = PREVIEWS_MESSAGES_COUNT;
+
+        // 이전 대화 내용 가져오기 (최대 10개)
+        // oldMessages 리스트에서 가장 최근의 10개 메시지를 뽑아옴
+        List<Message> previousMessages = oldMessages
+                // 전체 메시지 수가 10개 이상이면 최근 10개, 그렇지 않으면 처음부터 전부 사용
+                .subList(Math.max(0, oldMessagesSize - previousMessagesSize), oldMessagesSize)
+                .stream()
+                .flatMap(msg ->
+                        Stream.of(
+                                new UserMessage(msg.getUserMessage()),
+                                new AssistantMessage(msg.getBotMessage())
+                        )
+                )
+                .collect(Collectors.toList()); // 최종적으로 List<Message> 형태로 수집
+
+        // 시스템 메시지 추가 (한국인 컨텍스트)
+        List<Message> messages = new ArrayList<>();
+        // AI에게 대화 컨텍스트(지침)를 알려주는 시스템 메시지 추가
+        messages.add(new SystemMessage("""
+                당신은 한국인과 대화하고 있습니다.
+                한국의 문화와 정서를 이해하고 있어야 합니다.
+                최대한 한국어/영어만 사용해줘요.
+                한자, 일본어 사용 자제해주세요.
+                영어보다 한국어를 우선적으로 사용해줘요.
+                """));
+
+        // 가장 마지막 요약 메시지를 시스템 메시지 형태로 추가
+        if (!aiChatRoom.getSummaryMessages().isEmpty()) {
+            messages.add(
+                    new SystemMessage(
+                            "지난 대화 요약\n\n" + aiChatRoom.getSummaryMessages()
+                                    .getLast().getMessage()
+                    )
+            );
+        }
+
+        messages.addAll(previousMessages);  // 이전 대화 메시지들을 시스템 메시지 뒤에 이어 붙임
+        messages.add(new UserMessage(message)); // 사용자가 현재 입력한 메시지를 추가
+
         // 프롬프트 생성 (Groq API에 보낼 메세지)
-        Prompt prompt = new Prompt(List.of(new UserMessage(message)));
+        Prompt prompt = new Prompt(messages);
 
         // 프롬프트에 대한 응답을 받을 StringBuilder
         StringBuilder fullResponse = new StringBuilder();
@@ -64,6 +118,7 @@ public class AIChatController {
                     if (chunk.getResult() == null ||
                             chunk.getResult().getOutput() == null ||
                             chunk.getResult().getOutput().getText() == null) {
+
                         aiChatRoom.addMessage(
                                 message,
                                 fullResponse.toString()
