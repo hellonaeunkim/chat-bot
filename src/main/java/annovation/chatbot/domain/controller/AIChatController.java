@@ -21,6 +21,7 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,6 +55,7 @@ public class AIChatController {
     @Operation(summary = "채팅방 대화 생성")
     @ResponseStatus(HttpStatus.OK)
     @GetMapping(value = "/generate-stream/{chatRoomId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Transactional
     public Flux<ServerSentEvent<String>> generateStream(
             @PathVariable Long chatRoomId,
             @RequestParam(value = "message", defaultValue = "Tell me a joke") String message
@@ -163,6 +165,7 @@ public class AIChatController {
     @Operation(summary = "특정 사용자의 채팅방 메세지 기록 조회")
     @ResponseStatus(HttpStatus.OK)
     @GetMapping("/{chatRoomId}/messages")
+    @Transactional(readOnly = true)
     public List<AIChatRoomMsgResponse> getMessages(
             @PathVariable Long chatRoomId
     ) {
